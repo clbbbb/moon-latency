@@ -1,0 +1,26 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "clbbbb/moon-latency"
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct Histogram {
+  // private fields
+}
+pub fn Histogram::count(Self) -> Int64
+pub fn Histogram::count_at_most(Self, Int64) -> Interval
+pub fn Histogram::merge(Self, Self) -> Bool
+pub fn Histogram::new() -> Self
+pub fn Histogram::quantile(Self, Int32) -> Interval?
+pub fn Histogram::record(Self, Int64, count? : Int64) -> Bool
+
+pub(all) struct Interval {
+  lower : Int64
+  upper : Int64
+}
+
+// Type aliases
+
+// Traits

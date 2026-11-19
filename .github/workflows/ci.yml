@@ -1,0 +1,15 @@
+name: MoonLatency
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [wasm, wasm-gc, js]
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+      - run: moon check --deny-warn --target ${{ matrix.target }}
+      - run: moon test --release --deny-warn --target ${{ matrix.target }}
