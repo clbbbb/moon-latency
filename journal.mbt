@@ -19,6 +19,7 @@ pub struct JournalReader {
   priv mut phase : JournalPhase
   priv mut frame : Int64
   priv mut closed : Bool
+  priv mut delivering : Bool
 }
 
 ///|
@@ -91,6 +92,7 @@ pub fn JournalReader::new(collector : Collector) -> JournalReader {
     phase: Magic,
     frame: 0L,
     closed: false,
+    delivering: false,
   }
 }
 
@@ -134,7 +136,9 @@ fn JournalReader::next_frame(
       self.frame += 1L
       self.required = 4
       self.phase = Length
+      self.delivering = true
       emit(receipt)
+      self.delivering = false
     }
   }
   self.pending = Array(capacity=4)
@@ -142,13 +146,13 @@ fn JournalReader::next_frame(
 }
 
 ///|
-/// The callback must not read or close this same journal reader.
+/// Reentrant reads and closes are rejected during callback delivery.
 pub fn JournalReader::feed(
   self : JournalReader,
   chunk : BytesView,
   emit : (BatchReceipt) -> Unit,
 ) -> Result[Unit, JournalError] {
-  if self.closed {
+  if self.closed || self.delivering {
     return Err(JournalClosed)
   }
   if chunk.length() > JOURNAL_CHUNK {
@@ -181,7 +185,7 @@ pub fn JournalReader::feed(
 pub fn JournalReader::finish(
   self : JournalReader,
 ) -> Result[Unit, JournalError] {
-  if self.closed {
+  if self.closed || self.delivering {
     return Err(JournalClosed)
   }
   let complete = self.phase is Length && self.pending.is_empty()

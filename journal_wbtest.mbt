@@ -63,3 +63,29 @@ test "truncated frames do not modify the collector" {
     assert_eq(collector.summary().count(), 0L)
   }
 }
+
+///|
+test "journal callbacks cannot change parser state during frame delivery" {
+  let collector = Collector::new(Nanoseconds, 10L, 2).unwrap()
+  let reader = JournalReader::new(collector)
+  let shard = packet(3L, 2L, 0L, Nanoseconds, 1L, 2L)
+  let frame = journal_frame([shard]).unwrap()
+  let reentry = []
+  reader.feed(journal_header()[:], _ => ()).unwrap()
+  reader
+  .feed(frame[:], receipt => {
+    reentry.push(receipt.added == 1)
+    reentry.push(reader.finish() is Err(JournalClosed))
+    reentry.push(
+      reader.feed(frame[:], _ => abort("unexpected nested receipt"))
+      is Err(JournalClosed),
+    )
+  })
+  .unwrap()
+  assert_eq(reentry, [true, true, true])
+  let duplicates = []
+  reader.feed(frame[:], receipt => duplicates.push(receipt.duplicates)).unwrap()
+  assert_eq(duplicates, [1])
+  reader.finish().unwrap()
+  assert_eq(collector.summary().count(), 2L)
+}
