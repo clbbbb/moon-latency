@@ -71,4 +71,6 @@ python scripts/check_collect.py
 
 运行 `moon run cmd/bench --release` 可生成窄分布、长尾分布和突发负载的 JSONL 基准。程序按相同输入对照排序真值，记录写入、合并、查询的实测耗时及快照字节数。
 
+快照、分片和日志的字段顺序及重放语义见 [二进制格式](docs/wire-format.md)。
+
 项目独立实现，遵循 Apache-2.0。相关近似分位技术可参阅 [Apache DataSketches KLL](https://datasketches.apache.org/docs/KLL/KLLSketch.html)。
