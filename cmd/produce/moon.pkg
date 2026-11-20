@@ -1,0 +1,14 @@
+import {
+  "clbbbb/moon-latency" @latency,
+  "moonbitlang/core/encoding/hex",
+  "moonbitlang/core/env",
+  "moonbitlang/core/string",
+}
+
+pkgtype(kind: "executable")
+
+supported_targets = "js"
+
+options(
+  link: { "js": { "format": "cjs" } },
+)

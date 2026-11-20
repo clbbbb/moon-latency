@@ -35,6 +35,15 @@ pub fn Histogram::assess_slo(
   let total = self.count()
   let required = ceil_fraction(total, target)
   let passing = self.count_at_most(threshold)
+  Some(make_report(total, passing, required))
+}
+
+///|
+fn make_report(
+  total : Int64,
+  passing : Interval,
+  required : Int64,
+) -> SloReport {
   let status = if total == 0L {
     NoSamples
   } else if passing.lower >= required {
@@ -44,5 +53,5 @@ pub fn Histogram::assess_slo(
   } else {
     Indeterminate
   }
-  Some({ total, passing, required, status, })
+  { total, passing, required, status, }
 }

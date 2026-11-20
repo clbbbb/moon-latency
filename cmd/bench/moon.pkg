@@ -1,0 +1,6 @@
+import {
+  "clbbbb/moon-latency" @latency,
+  "moonbitlang/core/bench" @clock,
+}
+
+pkgtype(kind: "executable")

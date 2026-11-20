@@ -26,6 +26,11 @@ const MAX_SAMPLE_LINE : Int32 = 96
 
 ///|
 fn parse_sample(line : String) -> (Int64, Int64, Int64)? {
+  for ch in line {
+    if ch > '\u007f' {
+      return None
+    }
+  }
   let fields = line.trim().split(",").to_array()
   if fields.length() < 2 || fields.length() > 3 {
     return None

@@ -67,7 +67,14 @@ fn run(args : Array[String]) -> Result[Unit, String] {
     println(
       "collect <ns|us|ms> <epoch-width> <slots> <threshold> <target-ppm> <shard>...",
     )
+    println("collect fleet <config.json> <service=file>...")
     return Ok(())
+  }
+  if !args.is_empty() && args[0] == "fleet" {
+    return run_fleet(args)
+  }
+  if !args.is_empty() && args[0] == "journal" {
+    return run_journal(args[1:].to_owned())
   }
   if args.length() < 6 {
     return Err("missing parameters or shard files; use --help")

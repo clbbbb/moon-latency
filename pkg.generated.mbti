@@ -1,12 +1,22 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "clbbbb/moon-latency"
 
+import {
+  "moonbitlang/core/json",
+}
+
 // Values
 pub fn compare_quantile(Distribution, Distribution, Int32) -> QuantileComparison?
 
 pub fn decode_batch(Bytes) -> Result[Array[Shard], BatchError]
 
 pub fn encode_batch(Array[Shard]) -> Result[Bytes, BatchError]
+
+pub fn journal_frame(Array[Shard]) -> Result[Bytes, BatchError]
+
+pub fn journal_header() -> Bytes
+
+pub fn replay_journal(Collector, () -> Result[Bytes?, String]) -> Result[ReplayStats, ReplayError]
 
 // Errors
 
@@ -59,6 +69,32 @@ pub fn Collector::restore(Bytes) -> Result[Self, CheckpointError]
 pub fn Collector::series(Self, Int64, Int32) -> Array[EpochReport]?
 pub fn Collector::summary(Self) -> Histogram
 
+pub(all) enum ConfigError {
+  ConfigSize
+  ConfigSyntax
+  ConfigVersion
+  InvalidServiceConfig(Int32)
+  ServiceRejected(Int32, RegistryError)
+  ObjectiveRejected(Int32, PolicyError)
+}
+
+pub(all) enum DeltaError {
+  UnitChanged
+  SourceChanged
+  SequenceDidNotIncrease
+  TimestampWentBackward
+  BucketDecreased(Int32)
+}
+
+pub struct Deployment {
+  // private fields
+}
+pub fn Deployment::parse(String) -> Result[Self, ConfigError]
+pub fn Deployment::registry(Self) -> Registry
+pub fn Deployment::report(Self, Registry) -> Result[Array[ServiceReport], RegistryError]
+pub fn Deployment::report_json(Self, Registry) -> Result[String, RegistryError]
+pub fn Deployment::to_json(Self) -> String
+
 pub struct Distribution {
   // private fields
 }
@@ -72,6 +108,7 @@ pub(all) struct EpochReport {
   started_at : Int64
   result : SloReport
 }
+pub fn EpochReport::to_json(Self) -> @json.Json
 
 pub struct Histogram {
   // private fields
@@ -79,6 +116,7 @@ pub struct Histogram {
 pub fn Histogram::assess_slo(Self, Int64, Int32) -> SloReport?
 pub fn Histogram::count(Self) -> Int64
 pub fn Histogram::count_at_most(Self, Int64) -> Interval
+pub fn Histogram::delta(Self, Self) -> Result[Self, DeltaError]
 pub fn Histogram::distribution(Self) -> Distribution
 pub fn Histogram::from_snapshot(Bytes) -> Result[Self, SnapshotError]
 pub fn Histogram::merge(Self, Self) -> Bool
@@ -100,6 +138,33 @@ pub(all) struct Interval {
   upper : Int64
 }
 
+pub(all) enum JournalError {
+  JournalClosed
+  BadJournalMagic
+  BadFrameLength(Int64)
+  BadFrameChecksum(Int64)
+  UnexpectedEnd(Int64)
+  BadJournalBatch(Int64, BatchCollectError)
+  OversizedChunk
+}
+
+pub struct JournalReader {
+  // private fields
+}
+pub fn JournalReader::feed(Self, BytesView, (BatchReceipt) -> Unit) -> Result[Unit, JournalError]
+pub fn JournalReader::finish(Self) -> Result[Unit, JournalError]
+pub fn JournalReader::frames(Self) -> Int64
+pub fn JournalReader::new(Collector) -> Self
+
+pub struct JournalWriter {
+  // private fields
+}
+pub fn JournalWriter::finish(Self) -> Result[Bytes?, WriterError]
+pub fn JournalWriter::flush(Self) -> Result[Bytes?, WriterError]
+pub fn JournalWriter::new(count_limit? : Int32, bytes_limit? : Int32) -> Result[Self, WriterError]
+pub fn JournalWriter::pending_count(Self) -> Int32
+pub fn JournalWriter::push(Self, Shard) -> Result[Bytes?, WriterError]
+
 pub(all) enum LatencyChange {
   Slower
   Faster
@@ -112,6 +177,41 @@ pub(all) enum LatencyUnit {
   Nanoseconds
   Microseconds
   Milliseconds
+}
+pub fn LatencyUnit::name(Self) -> String
+pub fn LatencyUnit::parse(String) -> Self?
+
+pub(all) struct Objective {
+  name : String
+  threshold : Int64
+  target : Int32
+}
+
+pub(all) struct ObjectiveResult {
+  objective : Objective
+  report : SloReport
+  allowed_failures : Int64
+  observed_failures : Interval
+}
+pub fn ObjectiveResult::to_json(Self) -> @json.Json
+
+pub(all) struct ObjectiveTransition {
+  previous : ObjectiveResult
+  current : ObjectiveResult
+}
+
+pub struct Policy {
+  // private fields
+}
+pub fn Policy::compare(Self, Distribution, Distribution) -> Array[ObjectiveTransition]
+pub fn Policy::evaluate(Self, Distribution) -> Array[ObjectiveResult]
+pub fn Policy::new(Array[Objective]) -> Result[Self, PolicyError]
+
+pub(all) enum PolicyError {
+  EmptyPolicy
+  TooManyObjectives
+  InvalidObjective(Int32)
+  DuplicateObjective(Int32)
 }
 
 pub struct Producer {
@@ -143,6 +243,62 @@ pub(all) enum Receipt {
   Duplicate
 }
 
+pub struct Registry {
+  // private fields
+}
+pub fn Registry::advance(Self, String, Int64) -> Result[Unit, RegistryError]
+pub fn Registry::checkpoint(Self) -> Bytes
+pub fn Registry::evaluate(Self, String, Policy) -> Result[ServiceReport, RegistryError]
+pub fn Registry::names(Self) -> Array[String]
+pub fn Registry::new(capacity? : Int32) -> Result[Self, RegistryError]
+pub fn Registry::receive_atomic(Self, Array[RoutedShard]) -> Result[BatchReceipt, RouteTransactionError]
+pub fn Registry::receive_batch_bytes(Self, String, Bytes) -> Result[BatchReceipt, RegistryError]
+pub fn Registry::receive_bytes(Self, String, Bytes) -> Result[Receipt, RegistryError]
+pub fn Registry::register(Self, ServiceConfig) -> Result[Unit, RegistryError]
+pub fn Registry::remove(Self, String) -> Bool
+pub fn Registry::restore(Bytes) -> Result[Self, RegistryCheckpointError]
+pub fn Registry::summary(Self, String) -> Result[Histogram, RegistryError]
+
+pub(all) enum RegistryCheckpointError {
+  RegistryHeader
+  RegistryFrame(Int32)
+  RegistryName(Int32)
+  RegistryQuota(Int32)
+  ServiceCheckpoint(Int32, CheckpointError)
+}
+
+pub(all) enum RegistryError {
+  InvalidService
+  DuplicateService
+  UnknownService
+  ServiceBudget
+  RoutedFailure(CollectError)
+  RoutedBatchFailure(BatchCollectError)
+}
+
+pub(all) enum ReplayError {
+  BadReadSize
+  ReadFailure(String)
+  JournalFailure(JournalError)
+}
+
+pub(all) struct ReplayStats {
+  frames : Int64
+  added : Int64
+  duplicates : Int64
+  bytes : Int64
+}
+
+pub(all) enum RouteTransactionError {
+  TooManyRoutes
+  InvalidRoute(Int32, RegistryError)
+}
+
+pub(all) struct RoutedShard {
+  service : String
+  shard : Shard
+}
+
 pub struct SampleInput {
   // private fields
 }
@@ -150,10 +306,26 @@ pub fn SampleInput::feed(Self, String, (Shard) -> Unit) -> Result[Unit, InputErr
 pub fn SampleInput::finish(Self) -> Result[Array[Shard], InputError]
 pub fn SampleInput::new(Producer) -> Self
 
+pub(all) struct ServiceConfig {
+  service : String
+  unit : LatencyUnit
+  width : Int64
+  slots : Int32
+  identities : Int32
+}
+
+pub(all) struct ServiceReport {
+  service : String
+  unit : LatencyUnit
+  objectives : Array[ObjectiveResult]
+}
+pub fn ServiceReport::to_json(Self) -> @json.Json
+
 pub struct Shard {
   // private fields
 }
 pub fn Shard::decode(Bytes) -> Result[Self, ShardError]
+pub fn Shard::delta(Self, Self) -> Result[Self, DeltaError]
 pub fn Shard::encode(Self) -> Bytes
 pub fn Shard::identity(Self) -> (Int64, Int64)
 pub fn Shard::new(Int64, Int64, Int64, LatencyUnit, Histogram) -> Result[Self, ShardError]
@@ -172,6 +344,7 @@ pub(all) struct SloReport {
   required : Int64
   status : SloStatus
 }
+pub fn SloReport::to_json(Self) -> @json.Json
 
 pub(all) enum SloStatus {
   Met
@@ -179,6 +352,7 @@ pub(all) enum SloStatus {
   Indeterminate
   NoSamples
 }
+pub fn SloStatus::name(Self) -> String
 
 pub(all) enum SnapshotError {
   InvalidSize
@@ -201,6 +375,12 @@ pub(all) enum WindowError {
   InvalidObservation
   ClockWentBackward
   CountOverflow
+}
+
+pub(all) enum WriterError {
+  WriterClosed
+  FrameRejected(BatchError)
+  InvalidWriterLimit
 }
 
 // Type aliases

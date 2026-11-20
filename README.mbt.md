@@ -49,4 +49,26 @@ MLB1 批次以四字节标识和大端 u16 分片数开始，随后每片有大�
 
 `Collector::series` 按时间顺序返回当前活动窗口中每桶的 SLO 结论，缺失的桶标记无样本。`compare_quantile` 对两个同单位的分布给出分位值变化的上下界。区间重叠时会返回不确定。
 
+## 多服务和日志重放
+
+`Registry` 给各服务独立的单位、窗口和重试记录。`receive_atomic` 可跨服务一次提交多片数据。`Registry::checkpoint` 保存全部服务的状态。对累计监控计数，可用 `Shard::delta` 转为增量，并检测桶计数回退和序号错误。调用方需在桶边界采集累计快照，才能准确归属增量。
+
+多服务报告使用版本化 JSON 配置。下面是一个完整配置示例：
+
+```json
+{"version":"1","services":[{"service":"api","unit":"ms","width":"10","slots":3,"identities":256,"objectives":[{"name":"p99","threshold":"400","target":990000}]}]}
+```
+
+```sh
+moon build --target js --release --deny-warn
+node _build/js/release/build/cmd/produce/produce.js --help
+node _build/js/release/build/cmd/collect/collect.js fleet config.json api=api.mls
+node _build/js/release/build/cmd/collect/collect.js journal --help
+python scripts/check_collect.py
+```
+
+`produce` 逐块读取 CSV，每行输出一片 MLS1 的十六进制表示。文件汇总器读取二进制 MLS1/MLB1。日志打包用二进制标准输出，Windows 下使用支持二进制重定向的 shell。MLJ1 在标识后保存多个帧，每帧包含大端 u32 批次长度、批次内容和大端 u32 CRC-32。重放按帧提交，尾部截断或校验失败会报错，之前成功帧保留。CRC-32 用于发现意外损坏。
+
+运行 `moon run cmd/bench --release` 可生成窄分布、长尾分布和突发负载的 JSONL 基准。程序按相同输入对照排序真值，记录写入、合并、查询的实测耗时及快照字节数。
+
 项目独立实现，遵循 Apache-2.0。相关近似分位技术可参阅 [Apache DataSketches KLL](https://datasketches.apache.org/docs/KLL/KLLSketch.html)。
