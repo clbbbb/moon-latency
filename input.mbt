@@ -14,11 +14,12 @@ pub struct SampleInput {
   priv mut pending : String
   priv mut line : Int64
   priv mut closed : Bool
+  priv mut feeding : Bool
 }
 
 ///|
 pub fn SampleInput::new(producer : Producer) -> SampleInput {
-  { producer, pending: "", line: 1L, closed: false, }
+  { producer, pending: "", line: 1L, closed: false, feeding: false, }
 }
 
 ///|
@@ -73,13 +74,13 @@ fn SampleInput::parse_line(
 
 ///|
 /// Completed shards are emitted before a later bad row is reported.
-/// The callback must not call feed or finish on the same input.
+/// Reentrant feed or finish calls are rejected while the callback is active.
 pub fn SampleInput::feed(
   self : SampleInput,
   chunk : String,
   emit : (Shard) -> Unit,
 ) -> Result[Unit, InputError] {
-  if self.closed {
+  if self.closed || self.feeding {
     return Err(InputClosed)
   }
   if chunk.length() > 65536 {
@@ -94,7 +95,11 @@ pub fn SampleInput::feed(
           self.closed = true
           return Err(error)
         }
-        Ok(Some(shard)) => emit(shard)
+        Ok(Some(shard)) => {
+          self.feeding = true
+          emit(shard)
+          self.feeding = false
+        }
         Ok(None) => ()
       }
       start = i + 1
@@ -112,7 +117,7 @@ pub fn SampleInput::feed(
 pub fn SampleInput::finish(
   self : SampleInput,
 ) -> Result[Array[Shard], InputError] {
-  if self.closed {
+  if self.closed || self.feeding {
     return Err(InputClosed)
   }
   self.closed = true

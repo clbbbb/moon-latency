@@ -159,3 +159,28 @@ test "quantile comparison reports rigorous signed changes" {
   assert_true(compare_quantile(b, b, 990000) is Some({ change: Uncertain, .. }))
   assert_true(compare_quantile(a, a, 990000) is Some({ change: ExactTie, .. }))
 }
+
+///|
+test "sample callbacks cannot close or reenter the active input" {
+  let producer = Producer::new(1L, Microseconds, 1L).unwrap()
+  let input = SampleInput::new(producer)
+  let received = []
+  let denied = []
+  input
+  .feed("0,3\n1,4\n", shard => {
+    received.push(shard)
+    denied.push(input.finish() is Err(InputClosed))
+    denied.push(
+      input.feed("1,999\n", _ => abort("reentrant delivery"))
+      is Err(InputClosed),
+    )
+  })
+  .unwrap()
+  assert_eq(denied, [true, true])
+  assert_eq(received.length(), 1)
+  let remainder = input.finish().unwrap()
+  assert_eq(remainder.length(), 1)
+  let collector = Collector::new(Microseconds, 1L, 2).unwrap()
+  collector.receive_batch([received[0], remainder[0]]).unwrap() |> ignore
+  assert_eq(collector.summary().count(), 2L)
+}
