@@ -8,12 +8,19 @@ jobs:
         target: [wasm, wasm-gc, js]
     steps:
       - uses: actions/checkout@v4
+      - if: matrix.target == 'js'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - run: |
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
       - run: moon check --deny-warn --target ${{ matrix.target }}
       - run: moon test --release --deny-warn --target ${{ matrix.target }}
+      - run: moon run cmd/main --release --target ${{ matrix.target }}
       - if: matrix.target == 'js'
         run: |
           moon build --release --deny-warn --target js
           python scripts/check_collect.py
+      - if: matrix.target == 'wasm'
+        run: moon run cmd/bench --release --target wasm
