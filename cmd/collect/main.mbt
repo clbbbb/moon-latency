@@ -79,11 +79,9 @@ fn run(args : Array[String]) -> Result[Unit, String] {
   if args.length() < 6 {
     return Err("missing parameters or shard files; use --help")
   }
-  let unit = match args[0] {
-    "ns" => @latency.Nanoseconds
-    "us" => @latency.Microseconds
-    "ms" => @latency.Milliseconds
-    _ => return Err("unit must be ns, us, or ms")
+  let unit = match @latency.LatencyUnit::parse(args[0]) {
+    Some(unit) => unit
+    None => return Err("unit must be ns, us, or ms")
   }
   let (width, slots, threshold, target) = match parse_parameters(args) {
     None => return Err("invalid integer argument")
@@ -132,12 +130,7 @@ fn run(args : Array[String]) -> Result[Unit, String] {
     }
   }
   let report = collector.summary().assess_slo(threshold, target).unwrap()
-  let status = match report.status {
-    @latency.Met => "met"
-    @latency.Missed => "missed"
-    @latency.Indeterminate => "indeterminate"
-    @latency.NoSamples => "no_samples"
-  }
+  let status = report.status.name()
   // Int64 totals are decimal strings so JavaScript consumers retain precision.
   println(
     "{\"status\":\"\{status}\",\"total\":\"\{report.total}\",\"lower\":\"\{report.passing.lower}\",\"upper\":\"\{report.passing.upper}\",\"required\":\"\{report.required}\",\"added\":\{added},\"duplicate\":\{duplicate}}",

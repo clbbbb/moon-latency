@@ -76,11 +76,9 @@ fn run(args : Array[String]) -> Result[Unit, String] {
   if args.length() != 5 {
     return Err("expected five arguments; use --help")
   }
-  let unit = match args[0] {
-    "ns" => @latency.Nanoseconds
-    "us" => @latency.Microseconds
-    "ms" => @latency.Milliseconds
-    _ => return Err("unit must be ns, us, or ms")
+  let unit = match @latency.LatencyUnit::parse(args[0]) {
+    Some(unit) => unit
+    None => return Err("unit must be ns, us, or ms")
   }
   let (source, width, sequence) = match parse_integers(args) {
     Some(values) => values
