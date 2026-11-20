@@ -27,4 +27,16 @@ moon test --release --deny-warn
 
 `Window::new(width, slots)` 汇总最近若干对齐的时间桶。以 `merge_at(time, shard)` 提交分片摘要，通过 `advance(time)` 推进空闲期，使用 `summary()` 取得独立快照。窗口允许同一时间桶多次汇入，拒绝更早的时间桶。过期桶从总摘要中扣除。调用方应在同一时间桶内汇总同批数据，并处理去重。
 
+`Histogram::distribution()` 为同一批数据一次性构建前缀计数。多个分位数与阈值查询可用这个不可变视图进行二分查找，也可查询闭区间内的计数上下界。
+
+`Shard` 用 MLS1 格式携带延迟单位、来源编号、序号、时间戳及 MLH1 内容。`Collector` 按来源与序号去重，校验单位与身份冲突，接受仍在窗口内的乱序分片。记录过期后回收去重状态，生产者应为不同分片分配不同身份。所有分片时间戳必须采用统一时间轴。
+
+```sh
+moon build --target js --release --deny-warn
+node _build/js/release/build/cmd/collect/collect.js --help
+python scripts/check_collect.py
+```
+
+文件汇总命令使用 Node.js。参数依次为延迟单位、时间桶宽度、桶数、延迟阈值、目标百万分比和 MLS1 文件路径。输出 JSON 中的 Int64 计数使用十进制字符串。
+
 项目独立实现，遵循 Apache-2.0。相关近似分位技术可参阅 [Apache DataSketches KLL](https://datasketches.apache.org/docs/KLL/KLLSketch.html)。

@@ -6,12 +6,38 @@ package "clbbbb/moon-latency"
 // Errors
 
 // Types and methods
+pub(all) enum CollectError {
+  WindowFailure(WindowError)
+  ShardFailure(ShardError)
+  UnitMismatch
+  ConflictingIdentity
+  IdentityBudget
+}
+
+pub struct Collector {
+  // private fields
+}
+pub fn Collector::advance(Self, Int64) -> Result[Unit, CollectError]
+pub fn Collector::new(LatencyUnit, Int64, Int32, identities? : Int32) -> Result[Self, CollectError]
+pub fn Collector::receive(Self, Shard) -> Result[Receipt, CollectError]
+pub fn Collector::receive_bytes(Self, Bytes) -> Result[Receipt, CollectError]
+pub fn Collector::summary(Self) -> Histogram
+
+pub struct Distribution {
+  // private fields
+}
+pub fn Distribution::count(Self) -> Int64
+pub fn Distribution::count_at_most(Self, Int64) -> Interval
+pub fn Distribution::count_between(Self, Int64, Int64) -> Interval?
+pub fn Distribution::quantile(Self, Int32) -> Interval?
+
 pub struct Histogram {
   // private fields
 }
 pub fn Histogram::assess_slo(Self, Int64, Int32) -> SloReport?
 pub fn Histogram::count(Self) -> Int64
 pub fn Histogram::count_at_most(Self, Int64) -> Interval
+pub fn Histogram::distribution(Self) -> Distribution
 pub fn Histogram::from_snapshot(Bytes) -> Result[Self, SnapshotError]
 pub fn Histogram::merge(Self, Self) -> Bool
 pub fn Histogram::new() -> Self
@@ -22,6 +48,33 @@ pub fn Histogram::snapshot(Self) -> Bytes
 pub(all) struct Interval {
   lower : Int64
   upper : Int64
+}
+
+pub(all) enum LatencyUnit {
+  Nanoseconds
+  Microseconds
+  Milliseconds
+}
+
+pub(all) enum Receipt {
+  Added
+  Duplicate
+}
+
+pub struct Shard {
+  // private fields
+}
+pub fn Shard::decode(Bytes) -> Result[Self, ShardError]
+pub fn Shard::encode(Self) -> Bytes
+pub fn Shard::identity(Self) -> (Int64, Int64)
+pub fn Shard::new(Int64, Int64, Int64, LatencyUnit, Histogram) -> Result[Self, ShardError]
+pub fn Shard::timestamp(Self) -> Int64
+pub fn Shard::unit(Self) -> LatencyUnit
+
+pub(all) enum ShardError {
+  InvalidMetadata
+  InvalidEncoding
+  InvalidHistogram(SnapshotError)
 }
 
 pub(all) struct SloReport {

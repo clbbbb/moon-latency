@@ -11,17 +11,11 @@ pub(all) enum SnapshotError {
 // big-endian order. The payload length determines the number of records.
 pub fn Histogram::snapshot(self : Histogram) -> Bytes {
   let out = @buffer.Buffer::Buffer()
-  for byte in b"MLH1" {
-    out.write_byte(byte)
-  }
+  out.write_bytes(b"MLH1"[:])
   for index in 0..<bounds.length() {
     if self.counts[index] != 0L {
       out.write_uint16_be(index.to_uint16())
-      for shift in [56, 48, 40, 32, 24, 16, 8, 0] {
-        out.write_byte(
-          ((self.counts[index] >> shift) & 255L).to_int().to_byte(),
-        )
-      }
+      append_word(out, self.counts[index])
     }
   }
   out.to_bytes()
@@ -45,16 +39,12 @@ pub fn Histogram::from_snapshot(
     if index <= last || index >= bounds.length() {
       return Err(InvalidBucketOrder)
     }
-    if bytes[offset + 2].to_int() >= 128 {
+    let count = read_word(bytes, offset + 2)
+    if count <= 0L || count > MAX_COUNT - result.total {
       return Err(InvalidCount)
     }
-    let mut count = 0L
-    for i in (offset + 2)..<(offset + 10) {
-      count = (count << 8) | bytes[i].to_int().to_int64()
-    }
-    if count == 0L || !result.record(bounds[index], count~) {
-      return Err(InvalidCount)
-    }
+    result.counts[index] = count
+    result.total += count
     last = index
   }
   Ok(result)

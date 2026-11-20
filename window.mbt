@@ -89,7 +89,20 @@ pub fn Window::merge_at(
   if epoch < self.latest {
     return Err(ClockWentBackward)
   }
+  self.merge_live_epoch(epoch, shard)
+}
+
+///|
+// The collector may insert into an older, still-live slot.
+fn Window::merge_live_epoch(
+  self : Window,
+  epoch : Int64,
+  shard : Histogram,
+) -> Result[Unit, WindowError] {
   let span = self.slots.length().to_int64()
+  if epoch <= self.latest - span {
+    return Err(ClockWentBackward)
+  }
   let mut remaining = self.aggregate.total
   if shard.total > MAX_COUNT - remaining {
     for slot in self.slots {
@@ -101,7 +114,9 @@ pub fn Window::merge_at(
       return Err(CountOverflow)
     }
   }
-  self.advance_epoch(epoch)
+  if epoch > self.latest {
+    self.advance_epoch(epoch)
+  }
   let slot = self.slots[(epoch % span).to_int()]
   slot.epoch = epoch
   ignore(slot.histogram.merge(shard))
