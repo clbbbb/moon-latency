@@ -13,3 +13,7 @@ jobs:
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
       - run: moon check --deny-warn --target ${{ matrix.target }}
       - run: moon test --release --deny-warn --target ${{ matrix.target }}
+      - if: matrix.target == 'js'
+        run: |
+          moon build --release --deny-warn --target js
+          python scripts/check_collect.py

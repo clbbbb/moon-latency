@@ -128,3 +128,19 @@ fn Window::merge_live_epoch(
 pub fn Window::summary(self : Window) -> Histogram {
   { counts: self.aggregate.counts.copy(), total: self.aggregate.total, }
 }
+
+///|
+fn Window::copy(self : Window) -> Window {
+  {
+    width: self.width,
+    slots: self.slots.map(slot => {
+      epoch: slot.epoch,
+      histogram: {
+        counts: slot.histogram.counts.copy(),
+        total: slot.histogram.total,
+      },
+    }),
+    aggregate: self.summary(),
+    latest: self.latest,
+  }
+}

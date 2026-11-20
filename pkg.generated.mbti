@@ -2,10 +2,41 @@
 package "clbbbb/moon-latency"
 
 // Values
+pub fn compare_quantile(Distribution, Distribution, Int32) -> QuantileComparison?
+
+pub fn decode_batch(Bytes) -> Result[Array[Shard], BatchError]
+
+pub fn encode_batch(Array[Shard]) -> Result[Bytes, BatchError]
 
 // Errors
 
 // Types and methods
+pub(all) enum BatchCollectError {
+  MalformedBatch(BatchError)
+  BatchTooLarge
+  RejectedShard(Int32, CollectError)
+}
+
+pub(all) enum BatchError {
+  InvalidBatchSize
+  InvalidBatchHeader
+  InvalidBatchFrame(Int32)
+  InvalidBatchShard(Int32, ShardError)
+}
+
+pub(all) struct BatchReceipt {
+  added : Int32
+  duplicates : Int32
+}
+
+pub(all) enum CheckpointError {
+  BadCheckpointHeader
+  BadCheckpointConfiguration
+  BadCheckpointFrame(Int32)
+  BadCheckpointShard(Int32, ShardError)
+  BadCheckpointState(Int32, CollectError)
+}
+
 pub(all) enum CollectError {
   WindowFailure(WindowError)
   ShardFailure(ShardError)
@@ -18,9 +49,14 @@ pub struct Collector {
   // private fields
 }
 pub fn Collector::advance(Self, Int64) -> Result[Unit, CollectError]
+pub fn Collector::checkpoint(Self) -> Bytes
 pub fn Collector::new(LatencyUnit, Int64, Int32, identities? : Int32) -> Result[Self, CollectError]
 pub fn Collector::receive(Self, Shard) -> Result[Receipt, CollectError]
+pub fn Collector::receive_batch(Self, Array[Shard]) -> Result[BatchReceipt, BatchCollectError]
+pub fn Collector::receive_batch_bytes(Self, Bytes) -> Result[BatchReceipt, BatchCollectError]
 pub fn Collector::receive_bytes(Self, Bytes) -> Result[Receipt, CollectError]
+pub fn Collector::restore(Bytes) -> Result[Self, CheckpointError]
+pub fn Collector::series(Self, Int64, Int32) -> Array[EpochReport]?
 pub fn Collector::summary(Self) -> Histogram
 
 pub struct Distribution {
@@ -30,6 +66,12 @@ pub fn Distribution::count(Self) -> Int64
 pub fn Distribution::count_at_most(Self, Int64) -> Interval
 pub fn Distribution::count_between(Self, Int64, Int64) -> Interval?
 pub fn Distribution::quantile(Self, Int32) -> Interval?
+
+pub(all) struct EpochReport {
+  epoch : Int64
+  started_at : Int64
+  result : SloReport
+}
 
 pub struct Histogram {
   // private fields
@@ -45,9 +87,25 @@ pub fn Histogram::quantile(Self, Int32) -> Interval?
 pub fn Histogram::record(Self, Int64, count? : Int64) -> Bool
 pub fn Histogram::snapshot(Self) -> Bytes
 
+pub(all) enum InputError {
+  InputClosed
+  ChunkTooLarge
+  LineTooLong(Int64)
+  InvalidRow(Int64)
+  InvalidReading(Int64, ProducerError)
+}
+
 pub(all) struct Interval {
   lower : Int64
   upper : Int64
+}
+
+pub(all) enum LatencyChange {
+  Slower
+  Faster
+  Uncertain
+  ExactTie
+  MissingSamples
 }
 
 pub(all) enum LatencyUnit {
@@ -56,10 +114,41 @@ pub(all) enum LatencyUnit {
   Milliseconds
 }
 
+pub struct Producer {
+  // private fields
+}
+pub fn Producer::finish(Self) -> Shard?
+pub fn Producer::new(Int64, LatencyUnit, Int64, sequence? : Int64) -> Result[Self, ProducerError]
+pub fn Producer::pending_count(Self) -> Int64
+pub fn Producer::record(Self, Int64, Int64, count? : Int64) -> Result[Shard?, ProducerError]
+
+pub(all) enum ProducerError {
+  InvalidProducer
+  InvalidSample
+  SampleOutOfOrder
+  SampleCountOverflow
+  SequenceExhausted
+  ProducerFinished
+}
+
+pub(all) struct QuantileComparison {
+  baseline : Interval?
+  current : Interval?
+  change : LatencyChange
+  difference : Interval?
+}
+
 pub(all) enum Receipt {
   Added
   Duplicate
 }
+
+pub struct SampleInput {
+  // private fields
+}
+pub fn SampleInput::feed(Self, String, (Shard) -> Unit) -> Result[Unit, InputError]
+pub fn SampleInput::finish(Self) -> Result[Array[Shard], InputError]
+pub fn SampleInput::new(Producer) -> Self
 
 pub struct Shard {
   // private fields
@@ -104,6 +193,7 @@ pub struct Window {
 pub fn Window::advance(Self, Int64) -> Result[Unit, WindowError]
 pub fn Window::merge_at(Self, Int64, Histogram) -> Result[Unit, WindowError]
 pub fn Window::new(Int64, Int32) -> Result[Self, WindowError]
+pub fn Window::series(Self, Int64, Int32) -> Array[EpochReport]?
 pub fn Window::summary(Self) -> Histogram
 
 pub(all) enum WindowError {

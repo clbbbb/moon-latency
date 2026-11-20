@@ -37,6 +37,16 @@ node _build/js/release/build/cmd/collect/collect.js --help
 python scripts/check_collect.py
 ```
 
-文件汇总命令使用 Node.js。参数依次为延迟单位、时间桶宽度、桶数、延迟阈值、目标百万分比和 MLS1 文件路径。输出 JSON 中的 Int64 计数使用十进制字符串。
+文件汇总命令使用 Node.js。参数依次为延迟单位、时间桶宽度、桶数、延迟阈值、目标百万分比和 MLS1 或 MLB1 文件路径。输出 JSON 中的 Int64 计数使用十进制字符串。
+
+## 采集、批次和恢复
+
+`Producer` 按时间桶汇总一个来源的样本。时间戳必须非递减，可重复，跨桶时返回上一桶的 `Shard`。`finish()` 封存最后一桶。输入为文本时，`SampleInput` 支持分块读取 `timestamp,latency[,weight]` 整数记录，默认权重为 1。坏行报告物理行号，出错前已交付的分片保留。
+
+MLB1 批次以四字节标识和大端 u16 分片数开始，随后每片有大端 u16 长度和对应 MLS1 字节。单批最多 1,024 片。`receive_batch_bytes` 按输入顺序处理，在全部接收成功后提交状态。批次中的单位、身份或计数冲突会使整批回滚。
+
+`Collector::checkpoint` 导出 MLC1 检查点。恢复时重建窗口和当前去重状态，保留时间游标及汇总配置。检查点应保存在可信存储中，调用方负责完整性与原子写入。
+
+`Collector::series` 按时间顺序返回当前活动窗口中每桶的 SLO 结论，缺失的桶标记无样本。`compare_quantile` 对两个同单位的分布给出分位值变化的上下界。区间重叠时会返回不确定。
 
 项目独立实现，遵循 Apache-2.0。相关近似分位技术可参阅 [Apache DataSketches KLL](https://datasketches.apache.org/docs/KLL/KLLSketch.html)。

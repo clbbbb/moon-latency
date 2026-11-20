@@ -27,16 +27,18 @@ extern "js" fn read_shard(
 ) -> String =
   #| (path, open, read, close) => {
   #|   try {
-  #|     const bytes = Buffer.alloc(9634);
+  #|     const chunk = Buffer.alloc(65536);
   #|     const fd = open(path, "r");
   #|     try {
-  #|       let offset = 0;
-  #|       while (offset < bytes.length) {
-  #|         const n = read(fd, bytes, offset, bytes.length - offset);
-  #|         if (n === 0) return "=" + bytes.subarray(0, offset).toString("hex");
-  #|         offset += n;
+  #|       const parts = [];
+  #|       let length = 0;
+  #|       for (;;) {
+  #|         const n = read(fd, chunk, 0, Math.min(chunk.length, 9866247 - length));
+  #|         if (n === 0) return "=" + parts.join("");
+  #|         length += n;
+  #|         if (length > 9866246) return "!input exceeds the maximum batch size";
+  #|         parts.push(chunk.subarray(0, n).toString("hex"));
   #|       }
-  #|       return "!shard file exceeds 9633 bytes";
   #|     } finally { close(fd); }
   #|   } catch (e) { return "!" + e.message; }
   #| }
@@ -97,6 +99,24 @@ fn run(args : Array[String]) -> Result[Unit, String] {
     }
     let payload = @hex.decode(input[1:].to_owned()) catch {
       _ => return Err(path + ": invalid hexadecimal data")
+    }
+    if payload.length() >= 4 && payload[:4].to_owned() == b"MLB1" {
+      match collector.receive_batch_bytes(payload) {
+        Ok(receipt) => {
+          added += receipt.added
+          duplicate += receipt.duplicates
+        }
+        Err(@latency.RejectedShard(index, error)) =>
+          return Err(
+            path +
+            ": batch record " +
+            index.to_string() +
+            ": " +
+            collect_message(error),
+          )
+        Err(_) => return Err(path + ": invalid batch encoding")
+      }
+      continue
     }
     match collector.receive_bytes(payload) {
       Ok(@latency.Added) => added += 1

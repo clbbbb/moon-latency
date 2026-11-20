@@ -42,8 +42,16 @@ with tempfile.TemporaryDirectory() as folder:
     assert "unit mismatch" in invoke(first, bad, success=False)
     bad.write_bytes(shard(4, 1, 11, 2, [(20, 1), (20, 1)]))
     assert "invalid shard encoding" in invoke(first, bad, success=False)
-    bad.write_bytes(bytes(9634))
-    assert "exceeds 9633 bytes" in invoke(first, bad, success=False)
+    bad.write_bytes(bytes(9866247))
+    assert "exceeds the maximum batch size" in invoke(first, bad, success=False)
     bad.write_bytes(shard(4, 1, 0, 2, [(20, 1)]))
     assert "older than the active window" in invoke(first, bad, success=False)
+    batch = directory / "shards.mlb"
+    items = [first.read_bytes(), second.read_bytes(), second.read_bytes()]
+    batch.write_bytes(b"MLB1" + struct.pack(">H", len(items)) + b"".join(
+        struct.pack(">H", len(item)) + item for item in items
+    ))
+    assert invoke(batch) == invoke(first, second, second)
+    batch.write_bytes(batch.read_bytes()[:-1])
+    assert "invalid batch encoding" in invoke(batch, success=False)
 print("MLS1 CLI interoperability checks passed")

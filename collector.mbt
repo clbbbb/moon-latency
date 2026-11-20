@@ -15,10 +15,10 @@ pub(all) enum Receipt {
 
 ///|
 pub struct Collector {
-  priv window : Window
+  priv mut window : Window
   priv unit : LatencyUnit
   priv capacity : Int32
-  priv seen : Map[(Int64, Int64), Shard]
+  priv mut seen : Map[(Int64, Int64), Shard]
 }
 
 ///|
