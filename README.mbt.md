@@ -21,4 +21,10 @@ moon test --release --deny-warn
 
 对精确分位数，目标秩对应的所有候选值都在返回桶内，桶宽至多为下界的 1/16。对阈值，完全落在阈值内的桶构成计数下界，再加上跨越阈值的桶得到上界。在桶右边界上，计数为精确值。
 
-当前首版提供内存摘要和本地示例。序列化、线上传输和性能测量属于后续工作。项目独立实现，遵循 Apache-2.0。相关近似分位技术可参阅 [Apache DataSketches KLL](https://datasketches.apache.org/docs/KLL/KLLSketch.html)。
+跨进程交换通过 `snapshot()` 和 `Histogram::from_snapshot()` 完成。MLH1 以四字节 ASCII 标识开头，随后每个非空桶以大端 u16 桶号和正 i64 计数组成十字节记录。桶号必须严格递增。空摘要四字节，最密摘要 9,604 字节。调用方需统一度量单位，并负责传输和数据完整性。
+
+`assess_slo(threshold, target)` 返回达标、未达标、证据不足或无样本。阈值使用原延迟单位，目标比例使用百万分比。分类依据通过计数的上下界，只有整个区间都满足目标时才标记达标。
+
+`Window::new(width, slots)` 汇总最近若干对齐的时间桶。以 `merge_at(time, shard)` 提交分片摘要，通过 `advance(time)` 推进空闲期，使用 `summary()` 取得独立快照。窗口允许同一时间桶多次汇入，拒绝更早的时间桶。过期桶从总摘要中扣除。调用方应在同一时间桶内汇总同批数据，并处理去重。
+
+项目独立实现，遵循 Apache-2.0。相关近似分位技术可参阅 [Apache DataSketches KLL](https://datasketches.apache.org/docs/KLL/KLLSketch.html)。

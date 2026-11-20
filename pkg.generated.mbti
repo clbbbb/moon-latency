@@ -9,16 +9,55 @@ package "clbbbb/moon-latency"
 pub struct Histogram {
   // private fields
 }
+pub fn Histogram::assess_slo(Self, Int64, Int32) -> SloReport?
 pub fn Histogram::count(Self) -> Int64
 pub fn Histogram::count_at_most(Self, Int64) -> Interval
+pub fn Histogram::from_snapshot(Bytes) -> Result[Self, SnapshotError]
 pub fn Histogram::merge(Self, Self) -> Bool
 pub fn Histogram::new() -> Self
 pub fn Histogram::quantile(Self, Int32) -> Interval?
 pub fn Histogram::record(Self, Int64, count? : Int64) -> Bool
+pub fn Histogram::snapshot(Self) -> Bytes
 
 pub(all) struct Interval {
   lower : Int64
   upper : Int64
+}
+
+pub(all) struct SloReport {
+  total : Int64
+  passing : Interval
+  required : Int64
+  status : SloStatus
+}
+
+pub(all) enum SloStatus {
+  Met
+  Missed
+  Indeterminate
+  NoSamples
+}
+
+pub(all) enum SnapshotError {
+  InvalidSize
+  InvalidHeader
+  InvalidBucketOrder
+  InvalidCount
+}
+
+pub struct Window {
+  // private fields
+}
+pub fn Window::advance(Self, Int64) -> Result[Unit, WindowError]
+pub fn Window::merge_at(Self, Int64, Histogram) -> Result[Unit, WindowError]
+pub fn Window::new(Int64, Int32) -> Result[Self, WindowError]
+pub fn Window::summary(Self) -> Histogram
+
+pub(all) enum WindowError {
+  InvalidConfiguration
+  InvalidObservation
+  ClockWentBackward
+  CountOverflow
 }
 
 // Type aliases

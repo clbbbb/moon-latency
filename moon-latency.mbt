@@ -98,13 +98,7 @@ pub fn Histogram::quantile(self : Histogram, p : Int32) -> Interval? {
   if p < 0 || p > 1000000 || self.total == 0L {
     return None
   }
-  let fraction = p.to_int64()
-  let rank = if p == 0 {
-    1L
-  } else {
-    self.total / 1000000L * fraction +
-    (self.total % 1000000L * fraction + 999999L) / 1000000L
-  }
+  let rank = if p == 0 { 1L } else { ceil_fraction(self.total, p) }
   let mut prefix = 0L
   for id in 0..<bounds.length() {
     prefix += self.counts[id]
