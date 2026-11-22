@@ -50,5 +50,7 @@ pub fn Shard::delta(
   // Shards can only contain validated canonical histogram payloads.
   let current = Histogram::from_snapshot(self.payload).unwrap()
   let previous = Histogram::from_snapshot(baseline.payload).unwrap()
-  current.delta(previous).map(delta => { ..self, payload: delta.snapshot(), })
+  current
+  .delta(previous)
+  .map(delta => { ..self, payload: delta.snapshot(), decoded: None, })
 }

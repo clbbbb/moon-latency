@@ -3,6 +3,7 @@ pub(all) enum WriterError {
   WriterClosed
   FrameRejected(BatchError)
   InvalidWriterLimit
+  ShardExceedsFrameLimit
 }
 
 ///|
@@ -23,7 +24,7 @@ pub fn JournalWriter::new(
 ) -> Result[JournalWriter, WriterError] {
   if count_limit < 1 ||
     count_limit > BATCH_LIMIT ||
-    bytes_limit < 6 + 2 + MAX_SHARD_BYTES ||
+    bytes_limit < 6 + 2 + MAX_SHARD_BYTES - 8 ||
     bytes_limit > MAX_BATCH_BYTES {
     return Err(InvalidWriterLimit)
   }
@@ -53,7 +54,11 @@ pub fn JournalWriter::push(
   if self.closed {
     return Err(WriterClosed)
   }
-  let record = 2 + 29 + shard.payload.length()
+  let header = if shard.width == 0L { 29 } else { 37 }
+  let record = 2 + header + shard.payload.length()
+  if 6 + record > self.bytes_limit {
+    return Err(ShardExceedsFrameLimit)
+  }
   let emitted = if self.pending.length() == self.count_limit ||
     self.bytes + record > self.bytes_limit {
     match self.drain() {

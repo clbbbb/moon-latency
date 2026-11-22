@@ -184,3 +184,46 @@ test "sample callbacks cannot close or reenter the active input" {
   collector.receive_batch([received[0], remainder[0]]).unwrap() |> ignore
   assert_eq(collector.summary().count(), 2L)
 }
+
+///|
+test "producer MLS2 coverage rejects a shard that cannot fit the collector epoch" {
+  let producer = Producer::new(7L, Milliseconds, 60L).unwrap()
+  assert_true(producer.record(0L, 11L) is Ok(None))
+  assert_true(producer.record(59L, 25L) is Ok(None))
+  let shard = producer.finish().unwrap()
+  let payload = shard.encode()
+  assert_eq(payload[:4].to_owned(), b"MLS2")
+  assert_eq(Shard::decode(payload).unwrap().bucket_width(), 60L)
+  let narrow = Collector::new(Milliseconds, 10L, 4).unwrap()
+  assert_true(narrow.receive_bytes(payload) is Err(IncompatibleTimeBucket))
+  assert_eq(narrow.summary().count(), 0L)
+  let wide = Collector::new(Milliseconds, 120L, 4).unwrap()
+  assert_true(wide.receive_bytes(payload) is Ok(Added))
+  let restored = Collector::restore(wide.checkpoint()).unwrap()
+  assert_true(restored.receive_bytes(payload) is Ok(Duplicate))
+  assert_eq(restored.summary().count(), 2L)
+  let legacy = packet(8L, 0L, 59L, Milliseconds, 25L, 1L)
+  assert_eq(legacy.encode()[:4].to_owned(), b"MLS1")
+  assert_eq(Shard::decode(legacy.encode()).unwrap().bucket_width(), 0L)
+  assert_true(narrow.receive_bytes(legacy.encode()) is Ok(Added))
+}
+
+///|
+test "batch staging copies only touched histograms and never mutates original slots" {
+  let collector = Collector::new(Nanoseconds, 1L, 1024).unwrap()
+  let first = packet(1L, 1L, 1L, Nanoseconds, 0L, 2L)
+  collector.receive(first).unwrap() |> ignore
+  let staged = collector.copy()
+  assert_true(physical_equal(collector.window.slots[1], staged.window.slots[1]))
+  let second = packet(2L, 1L, 1L, Nanoseconds, 0L, 5L)
+  staged.receive(second).unwrap() |> ignore
+  assert_true(
+    !physical_equal(collector.window.slots[1], staged.window.slots[1]),
+  )
+  assert_true(physical_equal(collector.window.slots[2], staged.window.slots[2]))
+  assert_eq(collector.window.slots[1].histogram.count(), 2L)
+  assert_eq(staged.window.slots[1].histogram.count(), 7L)
+  staged.advance(1025L).unwrap()
+  assert_eq(staged.summary().count(), 0L)
+  assert_eq(collector.summary().count(), 2L)
+}

@@ -3,6 +3,7 @@ pub(all) enum CollectError {
   WindowFailure(WindowError)
   ShardFailure(ShardError)
   UnitMismatch
+  IncompatibleTimeBucket
   ConflictingIdentity
   IdentityBudget
 }
@@ -59,9 +60,21 @@ pub fn Collector::receive(
   if shard.unit.tag() != self.unit.tag() {
     return Err(UnitMismatch)
   }
+  if shard.width > 0L {
+    let remaining = MAX_COUNT - shard.timestamp
+    let coverage = if shard.width - 1L > remaining {
+      remaining
+    } else {
+      shard.width - 1L
+    }
+    if coverage >= self.window.width - shard.timestamp % self.window.width {
+      return Err(IncompatibleTimeBucket)
+    }
+  }
   let id = shard.identity()
   if self.seen.get(id) is Some(previous) {
     if previous.timestamp == shard.timestamp &&
+      previous.width == shard.width &&
       previous.payload == shard.payload {
       return Ok(Duplicate)
     }
@@ -75,9 +88,13 @@ pub fn Collector::receive(
   if self.seen.length() - expired.length() >= self.capacity {
     return Err(IdentityBudget)
   }
-  let histogram = match Histogram::from_snapshot(shard.payload) {
-    Err(error) => return Err(ShardFailure(InvalidHistogram(error)))
-    Ok(value) => value
+  let histogram = match shard.decoded {
+    Some(value) => value
+    None =>
+      match Histogram::from_snapshot(shard.payload) {
+        Err(error) => return Err(ShardFailure(InvalidHistogram(error)))
+        Ok(value) => value
+      }
   }
   match self.window.merge_live_epoch(epoch, histogram) {
     Err(error) => return Err(WindowFailure(error))
@@ -86,7 +103,7 @@ pub fn Collector::receive(
   for old in expired {
     self.seen.remove(old)
   }
-  self.seen[id] = shard
+  self.seen[id] = { ..shard, decoded: None, }
   Ok(Added)
 }
 

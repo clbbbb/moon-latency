@@ -18,6 +18,7 @@ pub struct Window {
   priv width : Int64
   priv slots : Array[Slot]
   priv aggregate : Histogram
+  priv shared_slots : Array[Bool]?
   priv mut latest : Int64
 }
 
@@ -31,6 +32,7 @@ pub fn Window::new(width : Int64, slots : Int32) -> Result[Window, WindowError] 
     slots: Array::makei(slots, _ => { epoch: -1L, histogram: Histogram::new(), }),
     aggregate: Histogram::new(),
     latest: -1L,
+    shared_slots: None,
   })
 }
 
@@ -43,15 +45,23 @@ fn Window::advance_epoch(self : Window, epoch : Int64) -> Unit {
   }
   let stop = if epoch - span < self.latest { epoch - span } else { self.latest }
   while expired <= stop {
-    let slot = self.slots[(expired % span).to_int()]
+    let index = (expired % span).to_int()
+    let slot = self.slots[index]
     if slot.epoch == expired {
       for i in 0..<bounds.length() {
         self.aggregate.counts[i] -= slot.histogram.counts[i]
-        slot.histogram.counts[i] = 0L
       }
       self.aggregate.total -= slot.histogram.total
-      slot.histogram.total = 0L
-      slot.epoch = -1L
+      if self.shared_slots is Some(shared) && shared[index] {
+        self.slots[index] = { epoch: -1L, histogram: Histogram::new(), }
+        shared[index] = false
+      } else {
+        for i in 0..<bounds.length() {
+          slot.histogram.counts[i] = 0L
+        }
+        slot.histogram.total = 0L
+        slot.epoch = -1L
+      }
     }
     expired += 1L
   }
@@ -117,7 +127,19 @@ fn Window::merge_live_epoch(
   if epoch > self.latest {
     self.advance_epoch(epoch)
   }
-  let slot = self.slots[(epoch % span).to_int()]
+  let index = (epoch % span).to_int()
+  let slot = self.slots[index]
+  if self.shared_slots is Some(shared) && shared[index] {
+    self.slots[index] = {
+      epoch: slot.epoch,
+      histogram: {
+        counts: slot.histogram.counts.copy(),
+        total: slot.histogram.total,
+      },
+    }
+    shared[index] = false
+  }
+  let slot = self.slots[index]
   slot.epoch = epoch
   ignore(slot.histogram.merge(shard))
   ignore(self.aggregate.merge(shard))
@@ -133,13 +155,8 @@ pub fn Window::summary(self : Window) -> Histogram {
 fn Window::copy(self : Window) -> Window {
   {
     width: self.width,
-    slots: self.slots.map(slot => {
-      epoch: slot.epoch,
-      histogram: {
-        counts: slot.histogram.counts.copy(),
-        total: slot.histogram.total,
-      },
-    }),
+    slots: self.slots.copy(),
+    shared_slots: Some(Array::make(self.slots.length(), true)),
     aggregate: self.summary(),
     latest: self.latest,
   }

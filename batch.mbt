@@ -10,7 +10,7 @@ pub(all) enum BatchError {
 const BATCH_LIMIT : Int32 = 1024
 
 ///|
-const MAX_SHARD_BYTES : Int32 = 9633
+const MAX_SHARD_BYTES : Int32 = 9641
 
 ///|
 /// Portable batch with a fixed header, a count, and length-prefixed shards.

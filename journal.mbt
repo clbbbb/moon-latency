@@ -30,7 +30,7 @@ priv enum JournalPhase {
 }
 
 ///|
-const MAX_BATCH_BYTES : Int32 = 9866246
+const MAX_BATCH_BYTES : Int32 = 9874438
 
 ///|
 const JOURNAL_CHUNK : Int32 = 65536

@@ -50,6 +50,8 @@ fn Producer::seal(self : Producer) -> Shard {
     timestamp: self.epoch * self.width,
     unit: self.unit,
     payload: self.pending.snapshot(),
+    width: self.width,
+    decoded: None,
   }
 }
 

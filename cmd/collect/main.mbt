@@ -33,10 +33,10 @@ extern "js" fn read_shard(
   #|       const parts = [];
   #|       let length = 0;
   #|       for (;;) {
-  #|         const n = read(fd, chunk, 0, Math.min(chunk.length, 9866247 - length));
+  #|         const n = read(fd, chunk, 0, Math.min(chunk.length, 9874439 - length));
   #|         if (n === 0) return "=" + parts.join("");
   #|         length += n;
-  #|         if (length > 9866246) return "!input exceeds the maximum batch size";
+  #|         if (length > 9874438) return "!input exceeds the maximum batch size";
   #|         parts.push(chunk.subarray(0, n).toString("hex"));
   #|       }
   #|     } finally { close(fd); }
@@ -141,6 +141,8 @@ fn run(args : Array[String]) -> Result[Unit, String] {
 ///|
 fn collect_message(error : @latency.CollectError) -> String {
   match error {
+    @latency.IncompatibleTimeBucket =>
+      "shard spans more than one collector time bucket"
     @latency.UnitMismatch => "shard latency unit mismatch"
     @latency.ConflictingIdentity => "conflicting shard identity"
     @latency.IdentityBudget => "shard identity budget exceeded"
