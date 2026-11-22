@@ -29,7 +29,7 @@ moon test --release --deny-warn
 
 `Histogram::distribution()` 为同一批数据一次性构建前缀计数。多个分位数与阈值查询可用这个不可变视图进行二分查找，也可查询闭区间内的计数上下界。
 
-`Shard` 用 MLS1 格式携带延迟单位、来源编号、序号、时间戳及 MLH1 内容。`Collector` 按来源与序号去重，校验单位与身份冲突，接受仍在窗口内的乱序分片。记录过期后回收去重状态，生产者应为不同分片分配不同身份。所有分片时间戳必须采用统一时间轴。
+`Shard` 携带延迟单位、来源编号、序号、时间戳及 MLH1 内容。采集器生成的 MLS2 还声明采集桶宽，接收时整片必须落在同一个接收桶内。旧 MLS1 仍按时间戳归桶，采集区间由发送方保证与接收配置相容。`Collector` 按来源与序号去重，校验单位与身份冲突，接受仍在窗口内的乱序分片。所有分片时间戳必须采用统一时间轴。
 
 ```sh
 moon build --target js --release --deny-warn
@@ -37,13 +37,13 @@ node _build/js/release/build/cmd/collect/collect.js --help
 python scripts/check_collect.py
 ```
 
-文件汇总命令使用 Node.js。参数依次为延迟单位、时间桶宽度、桶数、延迟阈值、目标百万分比和 MLS1 或 MLB1 文件路径。输出 JSON 中的 Int64 计数使用十进制字符串。
+文件汇总命令使用 Node.js。参数依次为延迟单位、时间桶宽度、桶数、延迟阈值、目标百万分比和 MLS1、MLS2 或 MLB1 文件路径。输出 JSON 中的 Int64 计数使用十进制字符串。
 
 ## 采集、批次和恢复
 
 `Producer` 按时间桶汇总一个来源的样本。时间戳必须非递减，可重复，跨桶时返回上一桶的 `Shard`。`finish()` 封存最后一桶。输入为文本时，`SampleInput` 支持分块读取 `timestamp,latency[,weight]` 整数记录，默认权重为 1。坏行报告物理行号，出错前已交付的分片保留。
 
-MLB1 批次以四字节标识和大端 u16 分片数开始，随后每片有大端 u16 长度和对应 MLS1 字节。单批最多 1,024 片。`receive_batch_bytes` 按输入顺序处理，在全部接收成功后提交状态。批次中的单位、身份或计数冲突会使整批回滚。
+MLB1 批次以四字节标识和大端 u16 分片数开始，随后每片有大端 u16 长度和对应 MLS1 或 MLS2 字节。单批最多 1,024 片。`receive_batch_bytes` 按输入顺序处理，在全部接收成功后提交状态。批次中的单位、时间桶、身份或计数冲突会使整批回滚。
 
 `Collector::checkpoint` 导出 MLC1 检查点。恢复时重建窗口和当前去重状态，保留时间游标及汇总配置。检查点应保存在可信存储中，调用方负责完整性与原子写入。
 
@@ -67,10 +67,12 @@ node _build/js/release/build/cmd/collect/collect.js journal --help
 python scripts/check_collect.py
 ```
 
-`produce` 逐块读取 CSV，每行输出一片 MLS1 的十六进制表示。文件汇总器读取二进制 MLS1/MLB1。日志打包用二进制标准输出，Windows 下使用支持二进制重定向的 shell。MLJ1 在标识后保存多个帧，每帧包含大端 u32 批次长度、批次内容和大端 u32 CRC-32。重放按帧提交，尾部截断或校验失败会报错，之前成功帧保留。CRC-32 用于发现意外损坏。
+`produce` 逐块读取 CSV，每行输出一片 MLS2 的十六进制表示。文件汇总器读取二进制 MLS1、MLS2 或 MLB1。日志打包用二进制标准输出，Windows 下使用支持二进制重定向的 shell。MLJ1 在标识后保存多个帧，每帧包含大端 u32 批次长度、批次内容和大端 u32 CRC-32。重放按帧提交，尾部截断或校验失败会报错，之前成功帧保留。CRC-32 用于发现意外损坏。
 
 运行 `moon run cmd/bench --release` 可生成窄分布、长尾分布和突发负载的 JSONL 基准。程序按相同输入对照排序真值，记录写入、合并、查询的实测耗时及快照字节数。
 
 快照、分片和日志的字段顺序及重放语义见 [二进制格式](docs/wire-format.md)。
+
+运行 `moon run cmd/bench_ingest --release` 可复测 1,024 槽窗口的单片接收和小批次处理。每组接收 192 片，并核对最终计数。
 
 项目独立实现，遵循 Apache-2.0。相关近似分位技术可参阅 [Apache DataSketches KLL](https://datasketches.apache.org/docs/KLL/KLLSketch.html)。
