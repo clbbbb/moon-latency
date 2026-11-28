@@ -11,7 +11,7 @@ pub(all) enum RegistryCheckpointError {
 /// MLR1 serializes each configured service in name order.
 pub fn Registry::checkpoint(self : Registry) -> Bytes {
   let buffer = @buffer.Buffer::Buffer()
-  buffer.write_bytes(b"MLR1"[:])
+  buffer.write_bytesview(b"MLR1"[:])
   buffer.write_uint16_be(self.capacity.to_uint16())
   let names = self.names()
   buffer.write_uint16_be(names.length().to_uint16())
@@ -22,7 +22,7 @@ pub fn Registry::checkpoint(self : Registry) -> Bytes {
     }
     let bytes = self.services.get(name).unwrap().checkpoint()
     append_dword(buffer, bytes.length().reinterpret_as_uint())
-    buffer.write_bytes(bytes[:])
+    buffer.write_bytesview(bytes[:])
   }
   buffer.to_bytes()
 }

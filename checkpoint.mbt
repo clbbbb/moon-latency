@@ -12,7 +12,7 @@ pub(all) enum CheckpointError {
 /// The wire format is a snapshot of accepted reports, not a memory dump.
 pub fn Collector::checkpoint(self : Collector) -> Bytes {
   let out = @buffer.Buffer::Buffer()
-  out.write_bytes(b"MLC1"[:])
+  out.write_bytesview(b"MLC1"[:])
   out.write_byte(self.unit.tag())
   append_word(out, self.window.width)
   append_word(out, self.window.latest)
@@ -34,7 +34,7 @@ pub fn Collector::checkpoint(self : Collector) -> Bytes {
   for shard in shards {
     let data = shard.encode()
     out.write_uint16_be(data.length().to_uint16())
-    out.write_bytes(data[:])
+    out.write_bytesview(data[:])
   }
   out.to_bytes()
 }

@@ -119,6 +119,8 @@ fn read_service(row : Json) -> (ServiceConfig, Array[Objective])? {
 }
 
 ///|
+// Retain the explicit input depth limit while the RC deprecates its label.
+#warnings("-deprecated")
 pub fn Deployment::parse(text : String) -> Result[Deployment, ConfigError] {
   if text.length() > 1048576 {
     return Err(ConfigSize)

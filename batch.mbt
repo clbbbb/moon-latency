@@ -19,12 +19,12 @@ pub fn encode_batch(shards : Array[Shard]) -> Result[Bytes, BatchError] {
     return Err(InvalidBatchSize)
   }
   let out = @buffer.Buffer::Buffer()
-  out.write_bytes(b"MLB1"[:])
+  out.write_bytesview(b"MLB1"[:])
   out.write_uint16_be(shards.length().to_uint16())
   for shard in shards {
     let bytes = shard.encode()
     out.write_uint16_be(bytes.length().to_uint16())
-    out.write_bytes(bytes[:])
+    out.write_bytesview(bytes[:])
   }
   Ok(out.to_bytes())
 }

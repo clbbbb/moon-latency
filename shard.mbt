@@ -107,7 +107,7 @@ fn read_word(bytes : Bytes, offset : Int32) -> Int64 {
 pub fn Shard::encode(self : Shard) -> Bytes {
   let out = @buffer.Buffer::Buffer()
   let magic = if self.width == 0L { b"MLS1" } else { b"MLS2" }
-  out.write_bytes(magic[:])
+  out.write_bytesview(magic[:])
   out.write_byte(self.unit.tag())
   append_word(out, self.source)
   append_word(out, self.sequence)
@@ -115,7 +115,7 @@ pub fn Shard::encode(self : Shard) -> Bytes {
   if self.width > 0L {
     append_word(out, self.width)
   }
-  out.write_bytes(self.payload[:])
+  out.write_bytesview(self.payload[:])
   out.to_bytes()
 }
 

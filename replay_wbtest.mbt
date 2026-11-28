@@ -1,7 +1,7 @@
 ///|
 fn append_optional(out : @buffer.Buffer, bytes : Bytes?) -> Unit {
   if bytes is Some(value) {
-    out.write_bytes(value[:])
+    out.write_bytesview(value[:])
   }
 }
 
@@ -34,7 +34,7 @@ test "journal frame length budget can split dense shards without dropping any" {
   let second = Shard::new(1L, 2L, 0L, Milliseconds, hist).unwrap()
   let writer = JournalWriter::new(count_limit=5, bytes_limit=9641).unwrap()
   let out = @buffer.Buffer::Buffer()
-  out.write_bytes(journal_header()[:])
+  out.write_bytesview(journal_header()[:])
   assert_true(writer.push(shard) is Ok(None))
   assert_eq(writer.pending_count(), 1)
   let larger = Shard::new(1L, 3L, 0L, Milliseconds, hist, width=1L).unwrap()
@@ -42,7 +42,7 @@ test "journal frame length budget can split dense shards without dropping any" {
   assert_eq(writer.pending_count(), 1)
   let first = writer.push(second).unwrap().unwrap()
   assert_eq(first.length(), 9649)
-  out.write_bytes(first[:])
+  out.write_bytesview(first[:])
   assert_eq(writer.pending_count(), 1)
   append_optional(out, writer.finish().unwrap())
   assert_true(writer.flush() is Err(WriterClosed))
@@ -67,7 +67,7 @@ test "journal count budget and explicit flush delimit repeatable frames" {
   let a = packet(1L, 1L, 0L, Microseconds, 6L, 17L)
   let b = packet(2L, 1L, 0L, Microseconds, 18L, 7L)
   let out = @buffer.Buffer::Buffer()
-  out.write_bytes(journal_header()[:])
+  out.write_bytesview(journal_header()[:])
   assert_true(writer.push(a) is Ok(None))
   assert_true(writer.push(b) is Ok(None))
   append_optional(out, writer.push(a).unwrap())

@@ -147,13 +147,13 @@ test "quantile comparison reports rigorous signed changes" {
   assert_true(
     compare_quantile(a, b, 990000)
     is Some(
-      { change: Slower, difference: Some({ lower: 399L, upper: 414L, }), .. }
+      { change: Slower, difference: Some({ lower: 399L, upper: 414L, }), .. },
     ),
   )
   assert_true(
     compare_quantile(b, a, 990000)
     is Some(
-      { change: Faster, difference: Some({ lower: -414L, upper: -399L, }), .. }
+      { change: Faster, difference: Some({ lower: -414L, upper: -399L, }), .. },
     ),
   )
   assert_true(compare_quantile(b, b, 990000) is Some({ change: Uncertain, .. }))

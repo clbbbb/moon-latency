@@ -11,7 +11,7 @@ pub(all) enum SnapshotError {
 // big-endian order. The payload length determines the number of records.
 pub fn Histogram::snapshot(self : Histogram) -> Bytes {
   let out = @buffer.Buffer::Buffer()
-  out.write_bytes(b"MLH1"[:])
+  out.write_bytesview(b"MLH1"[:])
   for index in 0..<bounds.length() {
     if self.counts[index] != 0L {
       out.write_uint16_be(index.to_uint16())

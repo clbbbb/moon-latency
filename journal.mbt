@@ -78,7 +78,7 @@ pub fn journal_frame(shards : Array[Shard]) -> Result[Bytes, BatchError] {
   }
   let out = @buffer.Buffer::Buffer()
   append_dword(out, batch.length().reinterpret_as_uint())
-  out.write_bytes(batch[:])
+  out.write_bytesview(batch[:])
   append_dword(out, crc32(batch[:]))
   Ok(out.to_bytes())
 }

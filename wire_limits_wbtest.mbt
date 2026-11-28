@@ -122,8 +122,8 @@ test "zero-length batches and empty journals preserve the current collector cloc
     collector.receive_batch_bytes(encoded) is Ok({ added: 0, duplicates: 0, }),
   )
   let out = @buffer.Buffer::Buffer()
-  out.write_bytes(journal_header()[:])
-  out.write_bytes(journal_frame([]).unwrap()[:])
+  out.write_bytesview(journal_header()[:])
+  out.write_bytesview(journal_frame([]).unwrap()[:])
   let data = out.to_bytes()
   let replay = replay_journal(collector, read_segments(data, 1)).unwrap()
   assert_eq(replay.bytes, data.length().to_int64())
